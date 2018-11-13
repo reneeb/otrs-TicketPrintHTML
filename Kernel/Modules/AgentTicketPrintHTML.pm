@@ -1,5 +1,5 @@
 # --
-# Copyright (C) 2017 Perl-Services.de, http://perl-services.de	
+# Copyright (C) 2017 - 2018 Perl-Services.de, http://perl-services.de	
 # --
 # This software comes with ABSOLUTELY NO WARRANTY. For details, see
 # the enclosed file COPYING for license information (AGPL). If you
@@ -36,6 +36,7 @@ sub Run {
 
     my $ConfigObject       = $Kernel::OM->Get('Kernel::Config');
     my $TicketObject       = $Kernel::OM->Get('Kernel::System::Ticket');
+    my $ArticleObject      = $Kernel::OM->Get('Kernel::System::Ticket::Article');
     my $UserObject         = $Kernel::OM->Get('Kernel::System::User');
     my $CustomerUserObject = $Kernel::OM->Get('Kernel::System::CustomerUser');
     my $ParamObject        = $Kernel::OM->Get('Kernel::System::Web::Request');
@@ -119,11 +120,10 @@ sub Run {
         TicketID => $Self->{TicketID},
         UserID   => $Self->{UserID},
     );
-    my @ArticleBox = $TicketObject->ArticleContentIndex(
-        TicketID                   => $Self->{TicketID},
-        StripPlainBodyAsAttachment => 1,
-        UserID                     => $Self->{UserID},
-        DynamicFields              => 0,
+
+    my @ArticleBox = $ArticleObject->ArticleList(
+        TicketID => $Self->{TicketID},
+        UserID   => $Self->{UserID},
     );
 
     # check if only one article need printed
@@ -253,6 +253,7 @@ sub _HTMLMask {
     my $ConfigObject       = $Kernel::OM->Get('Kernel::Config');
     my $LayoutObject       = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
     my $TicketObject       = $Kernel::OM->Get('Kernel::System::Ticket');
+    my $ArticleObject      = $Kernel::OM->Get('Kernel::System::Ticket::Article');
     my $DynamicFieldObject = $Kernel::OM->Get('Kernel::System::DynamicField');
     my $BackendObject      = $Kernel::OM->Get('Kernel::System::DynamicField::Backend');
     my $JSONObject         = $Kernel::OM->Get('Kernel::System::JSON');
@@ -389,7 +390,20 @@ sub _HTMLMask {
 
     # get last customer article
     for my $ArticleTmp (@ArticleBox) {
-        my %Article = %{$ArticleTmp};
+        my $ArticleBackendObject = $ArticleObject->BackendForArticle( %{$ArticleTmp} );
+        my %Article              = $ArticleBackendObject->ArticleGet(
+            %{$ArticleTmp},
+            DynamicFields => 0,
+        );
+
+        my %Attachments = $ArticleBackendObject->ArticleAttachmentIndex(
+            %{$ArticleTmp},
+            ExcludePlainText => 1,
+            ExcludeHTMLBody  => 1,
+            ExcludeInline    => 1,
+        );
+
+        $Article{Atms} = \%Attachments;
 
         # get attachment string
         my %AtmIndex = ();
@@ -458,7 +472,7 @@ sub _HTMLMask {
 
         # show accounted article time
         if ( $ConfigObject->Get('Ticket::ZoomTimeDisplay') ) {
-            my $ArticleTime = $TicketObject->ArticleAccountedTimeGet(
+            my $ArticleTime = $ArticleObject->ArticleAccountedTimeGet(
                 ArticleID => $Article{ArticleID},
             );
             $LayoutObject->Block(

@@ -17,6 +17,7 @@ our @ObjectDependencies = qw(
     Kernel::System::Web::Request
     Kernel::Config
     Kernel::System::Ticket
+    Kernel::System::Ticket::Article
     Kernel::System::Log
 );
 
@@ -38,6 +39,7 @@ sub Run {
     my $ParamObject    = $Kernel::OM->Get('Kernel::System::Web::Request');
     my $JSONObject     = $Kernel::OM->Get('Kernel::System::JSON');
     my $TicketObject   = $Kernel::OM->Get('Kernel::System::Ticket');
+    my $ArticleObject  = $Kernel::OM->Get('Kernel::System::Ticket::Article');
 
     my $Action = $ParamObject->GetParam( Param => 'Action' );
     return 1 if !$Param{Templates}->{$Action};
@@ -46,17 +48,12 @@ sub Run {
     my $Baselink = $LayoutObject->{Baselink};
     my $TicketID = $ParamObject->GetParam( Param => 'TicketID' );
 
-    my @Articles = $TicketObject->ArticleGet(
+    my @Articles = $ArticleObject->ArticleList(
         TicketID => $TicketID,
     );
 
     for my $Article ( @Articles ) {
         my $ArticleID = $Article->{ArticleID};
-
-        my %Article = $TicketObject->ArticleGet(
-            ArticleID => $ArticleID,
-            UserID    => $Self->{UserID},
-        );
 
         my $Link = qq~
             <li class="ArticleNote">
